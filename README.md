@@ -9,13 +9,13 @@ This app plays video with smooth pinch-to-zoom, drag-to-pan, and double-tap zoom
 - Double-tap to zoom in / reset
 - Clamp bounds so panning stays natural and seamless
 - Pick a local video from storage, or play a default sample URL
-- For MP4 playback, taps decoded PCM audio, slices into 20ms frames, and forwards frames to a native processor bridge
+- For merged MP4 playback, decoded PCM is processed in 20ms chunks by native C++ and the processed output is played
 
 ## Project Structure
 
 - `app/src/main/java/com/example/videozoomplayer/MainActivity.kt`
 - `app/src/main/java/com/example/videozoomplayer/PlayerZoomController.kt`
-- `app/src/main/java/com/example/videozoomplayer/PcmToNativeAudioBufferSink.kt`
+- `app/src/main/java/com/example/videozoomplayer/NativeOutputAudioProcessor.kt`
 - `app/src/main/java/com/example/videozoomplayer/NativePcmProcessor.kt`
 - `app/src/main/java/com/example/videozoomplayer/PcmTapRenderersFactory.kt`
 - `app/src/main/res/layout/activity_main.xml`
@@ -30,8 +30,8 @@ This app plays video with smooth pinch-to-zoom, drag-to-pan, and double-tap zoom
 
 ## Native Audio Processor Integration
 
-- The app now creates 20ms PCM frames (`sampleRate/50`) from playback audio and calls `NativePcmProcessor`.
-- Frames are converted to interleaved `int32` before being passed to native processing.
+- The app now processes playback audio in real time through `NativeOutputAudioProcessor`.
+- Audio is converted to interleaved `int32`, sent to native in 20ms blocks, then converted back and rendered.
 - Native contract used by the bridge:
   - `process(int *out, const int *in, int length)`
   - `in/out`: interleaved `[mic1][mic2][mic3]...`

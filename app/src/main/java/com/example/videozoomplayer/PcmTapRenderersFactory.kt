@@ -5,11 +5,10 @@ import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
-import androidx.media3.exoplayer.audio.TeeAudioProcessor
 
 class PcmTapRenderersFactory(
     context: Context,
-    private val audioBufferSink: TeeAudioProcessor.AudioBufferSink
+    private val audioProcessor: AudioProcessor
 ) : DefaultRenderersFactory(context) {
 
     override fun buildAudioSink(
@@ -17,12 +16,10 @@ class PcmTapRenderersFactory(
         enableFloatOutput: Boolean,
         enableAudioTrackPlaybackParams: Boolean
     ): AudioSink {
-        val teeProcessor = TeeAudioProcessor(audioBufferSink)
         return DefaultAudioSink.Builder(context)
-            .setAudioProcessors(arrayOf<AudioProcessor>(teeProcessor))
+            .setAudioProcessors(arrayOf(audioProcessor))
             .setEnableFloatOutput(enableFloatOutput)
             .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
             .build()
     }
 }
-

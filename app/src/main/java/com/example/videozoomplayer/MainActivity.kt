@@ -28,7 +28,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pickVideoLauncher: ActivityResultLauncher<Array<String>>
     private var player: ExoPlayer? = null
     private var zoomController: PlayerZoomController? = null
-    private var pcmTapSink: PcmToNativeAudioBufferSink? = null
+    private var nativeOutputAudioProcessor: NativeOutputAudioProcessor? = null
     private var currentUri: Uri? = null
     private var preferFlacTrack = true
     private val playerListener = object : Player.Listener {
@@ -92,9 +92,9 @@ class MainActivity : AppCompatActivity() {
         val extractorsFactory = DefaultExtractorsFactory()
             .setMp4ExtractorFlags(Mp4Extractor.FLAG_WORKAROUND_IGNORE_EDIT_LISTS)
         val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
-        val newPcmTapSink = PcmToNativeAudioBufferSink(NativePcmProcessor())
-        pcmTapSink = newPcmTapSink
-        val renderersFactory = PcmTapRenderersFactory(this, newPcmTapSink)
+        val newNativeProcessor = NativeOutputAudioProcessor(NativePcmProcessor())
+        nativeOutputAudioProcessor = newNativeProcessor
+        val renderersFactory = PcmTapRenderersFactory(this, newNativeProcessor)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
         val exoPlayer = ExoPlayer.Builder(this, renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)
@@ -121,8 +121,8 @@ class MainActivity : AppCompatActivity() {
     private fun releasePlayer() {
         zoomController?.detach()
         zoomController = null
-        pcmTapSink?.release()
-        pcmTapSink = null
+        nativeOutputAudioProcessor?.release()
+        nativeOutputAudioProcessor = null
 
         playerView.player = null
         player?.removeListener(playerListener)
