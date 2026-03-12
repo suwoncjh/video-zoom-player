@@ -208,7 +208,9 @@ class PlayerZoomController(
             return
         }
 
-        val localCenterX = (textureView.width / 2f - translationX) / scale
+        // TextureView scales around its center pivot, so inverse mapping from the
+        // screen center must account for pivot and translation.
+        val localCenterX = textureView.width / 2f - (translationX / scale)
         val normalizedX = ((localCenterX - sourceRect.left) / sourceRect.width()).coerceIn(0f, 1f)
         val sourceX = (normalizedX * videoWidth).roundToInt().coerceIn(0, videoWidth)
         currentListener.onViewportCenterChanged(sourceX, videoWidth)
