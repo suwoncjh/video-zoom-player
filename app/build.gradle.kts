@@ -3,6 +3,11 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val enableNativeBuild = providers
+    .gradleProperty("enableNativeBuild")
+    .map { it.equals("true", ignoreCase = true) }
+    .getOrElse(false)
+
 android {
     namespace = "com.example.videozoomplayer"
     compileSdk = 35
@@ -15,6 +20,14 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        if (enableNativeBuild) {
+            externalNativeBuild {
+                cmake {
+                    cppFlags += "-std=c++17"
+                }
+            }
+        }
     }
 
     buildTypes {
@@ -34,6 +47,16 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    if (enableNativeBuild) {
+        ndkVersion = "27.2.12479018"
+        externalNativeBuild {
+            cmake {
+                path = file("src/main/cpp/CMakeLists.txt")
+                version = "3.22.1"
+            }
+        }
     }
 
 }

@@ -1,0 +1,60 @@
+name: Android NDK Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android packages
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager \
+            "platforms;android-35" \
+            "build-tools;36.1.0" \
+            "cmake;3.22.1" \
+            "ndk;27.2.12479018"
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
+      - name: Build Debug APK with native code
+        run: ./gradlew :app:assembleDebug -PenableNativeBuild=true --stacktrace --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload native libs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-libs
+          path: |
+            app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib/**
+            app/build/intermediates/cxx/Debug/**/obj/**
+          if-no-files-found: warn
+

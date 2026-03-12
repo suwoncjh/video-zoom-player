@@ -28,6 +28,16 @@ This app plays video with smooth pinch-to-zoom, drag-to-pan, and double-tap zoom
 3. Run on a device/emulator with Android 7.0+.
 4. Tap **Pick Video** to open a local file and test pinch zoom.
 
+## GitHub Actions NDK Build
+
+- Workflow file: `.github/workflows/android-ndk-build.yml`
+- Runs on push/PR/manual trigger.
+- CI builds with `-PenableNativeBuild=true`, installs NDK + CMake, and uploads:
+  - `app-debug-apk` artifact
+  - `native-libs` artifact
+- Local builds keep native compile disabled by default. To enable on supported machines:
+  - `./gradlew :app:assembleDebug -PenableNativeBuild=true`
+
 ## Native Audio Processor Integration
 
 - The app now processes playback audio in real time through `NativeOutputAudioProcessor`.
