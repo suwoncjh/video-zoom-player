@@ -1,5 +1,6 @@
 package com.example.videozoomplayer
 
+import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import java.nio.ByteBuffer
@@ -10,6 +11,7 @@ class PcmToNativeAudioBufferSink(
     private val nativePcmProcessor: NativePcmProcessor
 ) : TeeAudioProcessor.AudioBufferSink {
 
+    private var supportedFormat = false
     private var sampleRateHz = 0
     private var channelCount = 0
     private var encoding = C.ENCODING_INVALID
@@ -22,12 +24,20 @@ class PcmToNativeAudioBufferSink(
         this.sampleRateHz = sampleRateHz
         this.channelCount = channelCount
         this.encoding = encoding
-        frameValueCount = (sampleRateHz / 50) * channelCount
+        supportedFormat = sampleRateHz == TARGET_SAMPLE_RATE_HZ && channelCount == TARGET_CHANNEL_COUNT
+        frameValueCount = SAMPLES_PER_20MS * channelCount
         pendingCount = 0
         nativePcmProcessor.reset(sampleRateHz, channelCount)
+        if (!supportedFormat) {
+            Log.w(
+                TAG,
+                "Unsupported audio format for native process: ${sampleRateHz}Hz, ${channelCount}ch"
+            )
+        }
     }
 
     override fun handleBuffer(buffer: ByteBuffer) {
+        if (!supportedFormat) return
         if (sampleRateHz <= 0 || channelCount <= 0 || frameValueCount <= 0) return
 
         val inputValues = decodeToInt32Values(buffer, encoding)
@@ -120,5 +130,11 @@ class PcmToNativeAudioBufferSink(
             pendingCount = remaining
         }
     }
-}
 
+    companion object {
+        private const val TAG = "PcmToNativeSink"
+        private const val TARGET_SAMPLE_RATE_HZ = 48_000
+        private const val TARGET_CHANNEL_COUNT = 3
+        private const val SAMPLES_PER_20MS = 960
+    }
+}

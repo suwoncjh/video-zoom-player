@@ -25,6 +25,8 @@ class NativePcmProcessor {
 
     fun processFrame20ms(inputInt32: IntArray, sampleRateHz: Int, channelCount: Int): IntArray? {
         if (!nativeAvailable || nativeHandle == 0L || inputInt32.isEmpty()) return null
+        if (sampleRateHz != TARGET_SAMPLE_RATE_HZ || channelCount != TARGET_CHANNEL_COUNT) return null
+        if (inputInt32.size != FRAME_SAMPLES_PER_CHANNEL * TARGET_CHANNEL_COUNT) return null
         return nativeProcess20ms(nativeHandle, inputInt32, sampleRateHz, channelCount)
     }
 
@@ -48,6 +50,8 @@ class NativePcmProcessor {
     companion object {
         private const val TAG = "NativePcmProcessor"
         private const val LIB_NAME = "pcmprocessor_jni"
+        private const val TARGET_SAMPLE_RATE_HZ = 48_000
+        private const val TARGET_CHANNEL_COUNT = 3
+        private const val FRAME_SAMPLES_PER_CHANNEL = 960
     }
 }
-

@@ -32,6 +32,10 @@ This app plays video with smooth pinch-to-zoom, drag-to-pan, and double-tap zoom
 
 - The app now creates 20ms PCM frames (`sampleRate/50`) from playback audio and calls `NativePcmProcessor`.
 - Frames are converted to interleaved `int32` before being passed to native processing.
+- Native contract used by the bridge:
+  - `process(int *out, const int *in, int length)`
+  - `in/out`: interleaved `[mic1][mic2][mic3]...`
+  - `length`: fixed `960` sample-frames (20ms at 48kHz)
 - To connect your real C++ processor, provide a prebuilt shared library named `libpcmprocessor_jni.so` in:
   - `app/src/main/jniLibs/arm64-v8a/`
   - (and other ABIs if needed)
