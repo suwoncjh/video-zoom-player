@@ -1,6 +1,7 @@
 package com.example.videozoomplayer
 
 import android.animation.ValueAnimator
+import android.graphics.RectF
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
@@ -9,12 +10,20 @@ import android.view.View
 import android.view.animation.DecelerateInterpolator
 import androidx.media3.ui.PlayerView
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 class PlayerZoomController(
     private val playerView: PlayerView,
     private val minZoom: Float = 1f,
     private val maxZoom: Float = 4f
 ) : View.OnTouchListener {
+
+    interface Listener {
+        fun onViewportCenterChanged(centerX: Int, sourceWidth: Int)
+        fun onViewportCenterUnavailable()
+    }
+
+    var listener: Listener? = null
 
     private val scaleDetector = ScaleGestureDetector(playerView.context, ScaleListener())
     private val gestureDetector = GestureDetector(playerView.context, GestureListener())
@@ -23,14 +32,23 @@ class PlayerZoomController(
     private var scale = 1f
     private var translationX = 0f
     private var translationY = 0f
+    private var videoWidth = 0
+    private var videoHeight = 0
 
     fun attach() {
         playerView.setOnTouchListener(this)
+        playerView.post { notifyViewportCenter() }
     }
 
     fun detach() {
         animator?.cancel()
         playerView.setOnTouchListener(null)
+    }
+
+    fun setVideoSize(width: Int, height: Int) {
+        videoWidth = width
+        videoHeight = height
+        notifyViewportCenter()
     }
 
     fun reset() {
@@ -39,6 +57,7 @@ class PlayerZoomController(
             scale = minZoom
             translationX = 0f
             translationY = 0f
+            notifyViewportCenter()
             return
         }
         resetWithoutAnimation(textureView)
@@ -161,9 +180,51 @@ class PlayerZoomController(
         textureView.scaleY = scale
         textureView.translationX = translationX
         textureView.translationY = translationY
+        notifyViewportCenter(textureView)
     }
 
     private fun lerp(start: Float, end: Float, progress: Float): Float {
         return start + (end - start) * progress
+    }
+
+    private fun notifyViewportCenter(textureView: TextureView? = playerView.videoSurfaceView as? TextureView) {
+        val currentListener = listener ?: return
+        if (videoWidth <= 0 || videoHeight <= 0 || textureView == null) {
+            currentListener.onViewportCenterUnavailable()
+            return
+        }
+        if (textureView.width == 0 || textureView.height == 0 || scale <= 0f) {
+            currentListener.onViewportCenterUnavailable()
+            return
+        }
+
+        val sourceRect = calculateSourceDisplayRect(textureView.width.toFloat(), textureView.height.toFloat())
+        if (sourceRect.width() <= 0f) {
+            currentListener.onViewportCenterUnavailable()
+            return
+        }
+
+        val localCenterX = (textureView.width / 2f - translationX) / scale
+        val normalizedX = ((localCenterX - sourceRect.left) / sourceRect.width()).coerceIn(0f, 1f)
+        val sourceX = (normalizedX * videoWidth).roundToInt().coerceIn(0, videoWidth)
+        currentListener.onViewportCenterChanged(sourceX, videoWidth)
+    }
+
+    private fun calculateSourceDisplayRect(viewWidth: Float, viewHeight: Float): RectF {
+        if (videoWidth <= 0 || videoHeight <= 0 || viewWidth <= 0f || viewHeight <= 0f) {
+            return RectF(0f, 0f, viewWidth, viewHeight)
+        }
+
+        val viewAspect = viewWidth / viewHeight
+        val videoAspect = videoWidth.toFloat() / videoHeight.toFloat()
+        return if (videoAspect > viewAspect) {
+            val displayedHeight = viewWidth / videoAspect
+            val top = (viewHeight - displayedHeight) / 2f
+            RectF(0f, top, viewWidth, top + displayedHeight)
+        } else {
+            val displayedWidth = viewHeight * videoAspect
+            val left = (viewWidth - displayedWidth) / 2f
+            RectF(left, 0f, left + displayedWidth, viewHeight)
+        }
     }
 }

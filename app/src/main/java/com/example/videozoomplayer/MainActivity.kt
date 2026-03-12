@@ -3,10 +3,13 @@ package com.example.videozoomplayer
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.google.android.material.button.MaterialButton
@@ -14,15 +17,24 @@ import com.google.android.material.button.MaterialButton
 class MainActivity : AppCompatActivity() {
 
     private lateinit var playerView: PlayerView
+    private lateinit var centerXLabel: TextView
     private lateinit var pickVideoLauncher: ActivityResultLauncher<Array<String>>
     private var player: ExoPlayer? = null
     private var zoomController: PlayerZoomController? = null
+    private val playerListener = object : Player.Listener {
+        override fun onVideoSizeChanged(videoSize: VideoSize) {
+            zoomController?.setVideoSize(videoSize.width, videoSize.height)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         playerView = findViewById(R.id.playerView)
+        centerXLabel = findViewById(R.id.centerXLabel)
+        showCenterUnavailable()
+
         pickVideoLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri == null) return@registerForActivityResult
             try {
@@ -57,8 +69,20 @@ class MainActivity : AppCompatActivity() {
         val exoPlayer = ExoPlayer.Builder(this).build()
         player = exoPlayer
         playerView.player = exoPlayer
+        exoPlayer.addListener(playerListener)
 
-        zoomController = PlayerZoomController(playerView).also { it.attach() }
+        zoomController = PlayerZoomController(playerView).also { controller ->
+            controller.listener = object : PlayerZoomController.Listener {
+                override fun onViewportCenterChanged(centerX: Int, sourceWidth: Int) {
+                    centerXLabel.text = getString(R.string.center_x_value, centerX, sourceWidth)
+                }
+
+                override fun onViewportCenterUnavailable() {
+                    showCenterUnavailable()
+                }
+            }
+            controller.attach()
+        }
         playUri(Uri.parse(SAMPLE_VIDEO_URL))
     }
 
@@ -67,16 +91,23 @@ class MainActivity : AppCompatActivity() {
         zoomController = null
 
         playerView.player = null
+        player?.removeListener(playerListener)
         player?.release()
         player = null
     }
 
     private fun playUri(uri: Uri) {
         val exoPlayer = player ?: return
+        showCenterUnavailable()
+        zoomController?.setVideoSize(0, 0)
         zoomController?.reset()
         exoPlayer.setMediaItem(MediaItem.fromUri(uri))
         exoPlayer.prepare()
         exoPlayer.playWhenReady = true
+    }
+
+    private fun showCenterUnavailable() {
+        centerXLabel.text = getString(R.string.center_x_unknown)
     }
 
     companion object {

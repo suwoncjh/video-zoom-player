@@ -2,4 +2,6 @@
 <resources>
     <string name="app_name">Video Zoom Player</string>
     <string name="pick_video">Pick Video</string>
+    <string name="center_x_unknown">X center: -- / --</string>
+    <string name="center_x_value">X center: %1$d / %2$d</string>
 </resources>
