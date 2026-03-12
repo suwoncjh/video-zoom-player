@@ -135,8 +135,12 @@ class PlayerZoomController(
         }
 
         override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-            playerView.showController()
-            return scale > minZoom
+            if (playerView.isControllerFullyVisible) {
+                playerView.hideController()
+            } else {
+                playerView.showController()
+            }
+            return true
         }
     }
 
