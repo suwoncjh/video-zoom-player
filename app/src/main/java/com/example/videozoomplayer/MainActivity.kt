@@ -4,13 +4,20 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.mp4.Mp4Extractor
 import androidx.media3.ui.PlayerView
 import com.google.android.material.button.MaterialButton
 
@@ -21,9 +28,24 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pickVideoLauncher: ActivityResultLauncher<Array<String>>
     private var player: ExoPlayer? = null
     private var zoomController: PlayerZoomController? = null
+    private var currentUri: Uri? = null
+    private var preferFlacTrack = true
     private val playerListener = object : Player.Listener {
         override fun onVideoSizeChanged(videoSize: VideoSize) {
             zoomController?.setVideoSize(videoSize.width, videoSize.height)
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            if (!preferFlacTrack || !isFlacDecodeFailure(error)) return
+            val uri = currentUri ?: return
+            preferFlacTrack = false
+            applyAudioTrackPreference()
+            Toast.makeText(
+                this@MainActivity,
+                R.string.flac_fallback_message,
+                Toast.LENGTH_SHORT
+            ).show()
+            playUri(uri, resetFlacPreference = false)
         }
     }
 
@@ -49,7 +71,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<MaterialButton>(R.id.pickVideoButton).setOnClickListener {
-            pickVideoLauncher.launch(arrayOf("video/*"))
+            pickVideoLauncher.launch(arrayOf("video/mp4", "application/mp4"))
         }
     }
 
@@ -66,7 +88,14 @@ class MainActivity : AppCompatActivity() {
     private fun initializePlayer() {
         if (player != null) return
 
-        val exoPlayer = ExoPlayer.Builder(this).build()
+        val extractorsFactory = DefaultExtractorsFactory()
+            .setMp4ExtractorFlags(Mp4Extractor.FLAG_WORKAROUND_IGNORE_EDIT_LISTS)
+        val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
+        val renderersFactory = DefaultRenderersFactory(this)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+        val exoPlayer = ExoPlayer.Builder(this, renderersFactory)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()
         player = exoPlayer
         playerView.player = exoPlayer
         exoPlayer.addListener(playerListener)
@@ -96,14 +125,40 @@ class MainActivity : AppCompatActivity() {
         player = null
     }
 
-    private fun playUri(uri: Uri) {
+    private fun playUri(uri: Uri, resetFlacPreference: Boolean = true) {
         val exoPlayer = player ?: return
+        currentUri = uri
+        if (resetFlacPreference) {
+            preferFlacTrack = true
+        }
+        applyAudioTrackPreference()
         showCenterUnavailable()
         zoomController?.setVideoSize(0, 0)
         zoomController?.reset()
-        exoPlayer.setMediaItem(MediaItem.fromUri(uri))
+        val mediaItem = MediaItem.Builder()
+            .setUri(uri)
+            .setMimeType(MimeTypes.VIDEO_MP4)
+            .build()
+        exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
         exoPlayer.playWhenReady = true
+    }
+
+    private fun applyAudioTrackPreference() {
+        val exoPlayer = player ?: return
+        val builder = exoPlayer.trackSelectionParameters.buildUpon()
+        if (preferFlacTrack) {
+            builder.setPreferredAudioMimeTypes(MimeTypes.AUDIO_FLAC)
+        } else {
+            builder.setPreferredAudioMimeTypes()
+        }
+        exoPlayer.trackSelectionParameters = builder.build()
+    }
+
+    private fun isFlacDecodeFailure(error: PlaybackException): Boolean {
+        return error.errorCode == PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED ||
+            error.errorCode == PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES ||
+            error.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED
     }
 
     private fun showCenterUnavailable() {
